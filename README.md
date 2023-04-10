@@ -14,7 +14,7 @@ localhost'da geliştirilmiş ve test edilmiştir.
 ~ Malzemeler 🤖
 * Python 🐍
 * Flask
-* Obsby
+* Obspy
 
 ```
 ![Sismograf](images/sismograf1.png)

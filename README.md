@@ -1,0 +1,2 @@
+# Sismograf
+ Türkiye'nin sismografı

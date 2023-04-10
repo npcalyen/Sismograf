@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Sismik Aktivite Monitörü</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://code.highcharts.com/highcharts.js"></script>
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	<script src="https://code.highcharts.com/modules/boost.js"></script>
+	<script src="https://code.highcharts.com/modules/exporting.js"></script>
+	<script src="https://code.highcharts.com/modules/export-data.js"></script>
+	<style>
+		html,
+		body {
+			height: 100%;
+			margin: 0;
+			padding: 0;
+		}
+
+		.sidebar {
+			background-color: beige;
+			overflow-y: scroll;
+			float: left;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			max-width: 300px;
+			position: relative;
+		}
+
+		h1 {
+			text-align: center;
+			margin: 0;
+			padding: 0;
+			color: orange;
+		}
+
+		ul {
+			list-style: none;
+			margin: 0;
+			padding: 0 20px;
+		}
+
+		li {
+			margin-bottom: 10px;
+		}
+
+		.chart-panel {
+			text-align: center;
+			padding: 20px;
+			background-color: gray;
+			color: white;
+			overflow: hidden;
+		}
+
+		.highcharts-credits {
+			display: none;
+		}
+
+		.chart-header {
+			background-color: red;
+			color: white;
+			padding: 10px;
+			margin-bottom: 10px;
+		}
+
+		.chart-header h2 {
+			margin: 0;
+			padding: 0;
+		}
+		
+		#chart-name {
+			background-color: red;
+			color: white;
+			height: 100px;
+			padding: 10px;
+			margin-top: 20px;
+			text-align: center;
+			font-size: 20px;
+			font-weight: bold;
+			margin-bottom: 20px;
+		}
+
+		@media screen and (min-width: 768px) {
+			.sidebar {
+				width: auto;
+				max-width: none;
+				position: relative;
+			}
+
+			.chart-panel {
+				margin-left: 0;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="sidebar">
+		<br>
+		<h1>İstasyonlar</h1>
+		<br>
+		<ul>
+			{% for station_code in station_codes %}
+			<li><a href="#" class="station-link" data-station="{{ station_code }}">{{ station_names[station_code] }}</a></li>
+			{% endfor %}
+		</ul>
+	</div>
+	<div class="chart-panel">
+		<div class="chart-header">
+			<h2><span id="station-name">Türkiye'nin ilk halka açık sismik monitörü</span></h2>
+		</div>
+		<div id="chart-container">
+			<h2>Görüntülemek için istasyon seçiniz...</h2>
+			<h3>
+			Uluslararası Dijital Sismograf Ağları Federasyonu(FDSN) verileriyle çalışmaktadır.
+			<br>
+			Verilerin kaynağı doğrudan Boğaziçi Üniversitesi Kandilli Rasathanesi'dir.
+			<br>
+			Sismik aktivite tespiti için konuşlandırılan Hızölçer ve İvmeölçer cihazlara ait
+			verileri grafik olarak göstermek amaçlanmıştır.
+			<br>
+			FDSN verileri maalesef canlı olmayıp, istasyonlara göre farklılık göstererek gecikmeli gözükebilir.
+			<br>
+			Bazı istasyonlar devredışı, atıl, bozuk, kaderine terk edilmiş veya senkronize olmayıp
+			erişilememektedir. 
+			<br>
+			İlgili birilerinin dikkatini çekerse gerekli düzenlemeleri yaparlar umarım.
+			</h3>
+		</div>
+	</div>
+	<div id="chart-name">
+	👽alyen👽
+	<br>
+	🐍
+	<br>
+	https://twitter.com/npcalyen
+	</div>
+	<script>
+		const stationLinks = document.querySelectorAll('.station-link');
+		let chart = null;
+		let currentStationCode = null;
+		let chartInterval = null;
+
+		stationLinks.forEach(link => {
+			link.addEventListener('click', event => {
+				event.preventDefault();
+				const stationCode = link.dataset.station;
+				if (chart) {
+					chart.destroy();
+				}
+				fetchChartData(stationCode);
+				currentStationCode = stationCode;
+			});
+		});
+
+	function fetchChartData(stationCode) {
+    clearInterval(chartInterval);
+    document.querySelector('#chart-container').innerHTML = '<h3>Veriler yükleniyor...</h3>';
+    fetch(`/station/${stationCode}`)
+				.then(response => response.json())
+				.then(data => {
+					clearInterval(chartInterval);
+					chart = createChart(data);
+					chartInterval = setInterval(() => {
+						updateChart(chart, stationCode);
+					}, 5000);
+					currentStationCode = stationCode;
+					document.querySelector('#station-name').textContent = data.station_name;
+					})
+			.catch(error => {
+			  console.error(error);
+			  chart = createChart({ data: [], station_name: '' });
+			  document.querySelector('#chart-container').innerHTML = '<h3>İstasyona ait verilere ulaşılamıyor!<br>İstasyon bozuk veya senkronize olmayabilir...</h3>';
+			});
+			}
+
+		Highcharts.setOptions({
+			global: {
+				timezoneOffset: -180 // UTC +3 saat
+			},
+			time: {
+				useUTC: true
+			}
+		});
+    function createChart(data) {
+      const chart = Highcharts.chart('chart-container', {
+        chart: {
+          type: 'line'
+        },
+        title: {
+          text: data.station_name
+        },
+		subtitle: {
+			text: 'İstasyon Kodu: ' + data.station_code
+		},
+        xAxis: {
+          type: 'datetime',
+          tickPixelInterval: 150,
+		  tickInterval: 1000,
+			title: {
+				text: 'Saat'
+			}
+        },
+        yAxis: {
+          title: {
+            text: 'Titreşim Şiddeti'
+          },
+          plotLines: [{
+            value: 0,
+            width: 0,
+            color: '#black'
+          }]
+        },
+		tooltip: {
+			xDateFormat: '%H:%M:%S',
+			pointFormat: '{series.name}: <b>{point.y:.2f}</b><br/>',
+			shared: true
+		},
+        series: [{
+          name: data.station_name,
+		  color: 'gray',
+          data: data.data.map(d => [new Date(d[0]).getTime(), d[1]])
+        }]
+      });
+
+      return chart;
+    }
+
+	function updateChart(chart, stationCode) {
+	  fetch(`/station/${stationCode}`)
+		.then(response => response.json())
+		.then(data => {
+		  chart.setTitle({ text: '' });
+		  chart.setTitle({ text: data.station_name });
+		  chart.series[0].setData(data.data.map(d => [new Date(d[0]).getTime(), d[1]]));
+		});
+	}
+</script>
+</body>
+</html>

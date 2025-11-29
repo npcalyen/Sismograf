@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Türkiye'nin İlk Halka Açık Sismik Aktivite Monitörü - Bir yerli ve milli ahududu şeyk :)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+	<link rel="stylesheet" type="text/css" href="style/style.css"> 
+</head>
+<body>
+    <div id="topBar">
+          <h1><span class="flag-red">Türkiye</span>'nin İlk Halka Açık Sismik Aktivite Monitörü</h1>
+        <p class="gold-text">Bu platformda, Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü'nün sağladığı veriler kullanılmaktadır. Sundukları değerli veriler için teşekkür ederiz.</p>
+    </div>
+
+    <div id="mapContainer">
+        <div id="map"></div>
+    </div>
+
+    <div id="bottomBar">
+		<a href="https://bsky.app/profile/npcalyen.bsky.social">© A L Y E N </a>
+        <p>2023 - 2025 (v.?)</p>
+    </div>
+    
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <h2>
+                    <span id="stationName">Station</span>
+                    <div class="header-buttons">
+                        <button class="zoom-btn" onclick="zoomToStation()" title="Zoom to Station">🔍</button>
+                        <button class="close-btn" onclick="closeSidebar()">×</button>
+                    </div>
+                </h2>
+                <p id="stationInfo">Network • Location</p>
+            </div>
+        </div>
+        <div class="sidebar-content">
+            <div id="messageContainer"></div>
+
+            <div class="channel-selector" id="channelSelector">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading channels...
+                </div>
+            </div>
+
+            <div class="chart-container" id="waveformContainer">
+                <div class="chart-title">
+                    <span id="waveformTitle">Waveform</span>
+                    <span class="refresh-indicator">
+                        <span class="pulse"></span>
+                        <span id="lastUpdate">-</span>
+                    </span>
+                </div>
+                <canvas id="waveformCanvas" style="cursor: pointer;"></canvas>
+            </div>
+
+            <div class="chart-container" id="spectrogramContainer">
+                <div class="chart-title" id="spectrogramTitle">Spectrogram</div>
+                <canvas id="spectrogramCanvas"></canvas>
+            </div>
+
+            <div class="station-info-card">
+                <div class="station-meta">
+                    <div class="station-code" id="stationCodeDisplay">-</div>
+                    <div class="station-time" id="timeWindow">15 min</div>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-item-label">Network</div>
+                        <div class="info-item-value" id="networkCode">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Elevation</div>
+                        <div class="info-item-value" id="elevation">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Latitude</div>
+                        <div class="info-item-value" id="latitude">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Longitude</div>
+                        <div class="info-item-value" id="longitude">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="errorContainer"></div>
+        </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+        Loading stations...
+    </div>
+
+    <div id="helicorderModal">
+        <div class="helicorder-content">
+            <div class="helicorder-header">
+                <div class="helicorder-title" id="helicorderTitle">24-Hour (UTC)</div>
+                <div class="helicorder-controls">
+                    <input type="date" id="helicorderDate" class="date-input" />
+                    <button class="close-btn" onclick="closeHelicorder()">×</button>
+                </div>
+            </div>
+            <div class="helicorder-body" id="helicorderBody">
+                <div id="helicorderPlot"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.seis.sc.edu/downloads/seisplotjs/seisplotjs_2.0.1_standalone.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+	<script src="js/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+V.1.0.1
+================================================================================================================================================================
+- Mobil cihazlarda istasyon seçimi sonrasında helicorder grafikteki yüksek bellek tüketimine neden olan crash sorununun önüne geçmek için, 
+kullanıcı cihazının RAM kontrolü yapılıyor. 
+4 GB’den az RAM'e sahip cihazlar 'düşük bellekli' olarak kabul ediliyor ve downsampling işlemi uygulanıyor. 
+Downsampling ile sinyaller sıkıştırılıyor ve grafikte [Downsampled] notu görünüyor. 
+Veriler bloklar halinde işleniyor, her bloktan minimum ve maximum değerler alınıyor. 
+Bu sayede sinyal aktivitesinin genlik (amplitude) karakteristiği korunuyor. Sinyaller, tremorlar ve gürültü seviyeleri görünür kalıyor. 
+Min-max yöntemi ile P-dalgası, S-dalgası ve yüzey dalgalarının genlik özellikleri korunuyor.
+- Mobil cihaz tespiti ile ekran genişliği (≤768px) ve User-Agent kontrolü yapılıyor.
+- Desktop cihazlarda ise veriler sunucudan alındığı gibi (RAW) gösteriliyor, yüksek çözünürlüklü sinyaller, daha detaylı veri, 
+bu da yüksek bellek tüketimine neden oluyor ancak desktop cihazların daha yüksek bellek kapasitesi sayesinde bu sorun gözardı edilebilir.
+
+Frontend: 
+- Layout, desktop ve mobil cihazlar için iyileştirildi. Mobil cihazlarda daha uygun bir kullanıcı arayüzü sağlandı.

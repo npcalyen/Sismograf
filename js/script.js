@@ -10,7 +10,7 @@
  * Eğitim ve kişisel kullanım için açık kaynak kod.
  *
  * @author A L Y E N
- * @version 1.0.0
+ * @version 1.0.1
  */
         const KOERI_STATION_URL = 'https://eida.koeri.boun.edu.tr/fdsnws/station/1/query?network=KO&level=channel&format=xml';
         const KOERI_DATASELECT_URL = 'https://eida.koeri.boun.edu.tr/fdsnws/dataselect/1/query';
@@ -804,13 +804,17 @@
             }
         }
 
-        function drawHelicorderPlotly(container, data, sampleRate, startTime, dateStr) {
-            console.log(`Drawing helicorder with ${data.length} samples at ${sampleRate} Hz`);
-            
+		function drawHelicorderPlotly(container, data, sampleRate, startTime, dateStr) {
             const samplesPerHour = sampleRate * 3600;
             const hoursToShow = 24;
             
-            console.log('Using RAW data without downsampling');
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+            const hasLowMemory = navigator.deviceMemory && navigator.deviceMemory < 4;
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            const isSmallScreen = window.screen.width <= 768 || window.screen.height <= 1024;
+            
+            const isMobile = isMobileDevice || hasLowMemory || (isTouchDevice && isSmallScreen);
             
             let sum = 0;
             for (let i = 0; i < data.length; i++) {
@@ -824,14 +828,44 @@
                 const startIdx = hour * samplesPerHour;
                 const endIdx = Math.min(startIdx + samplesPerHour, data.length);
                 
-                const hourData = [];
-                const timeData = [];
+                let hourData = [];
+                let timeData = [];
                 
                 if (startIdx < data.length) {
+                    const rawHourData = [];
+                    const rawTimeData = [];
+                    
                     for (let i = startIdx; i < endIdx; i++) {
                         const timeOffset = (i - startIdx) / sampleRate;
-                        timeData.push(timeOffset / 60); // minutes (0 to 60)
-                        hourData.push(data[i] - mean);
+                        rawTimeData.push(timeOffset / 60);
+                        rawHourData.push(data[i] - mean);
+                    }
+                    
+                    if (isMobile && rawHourData.length > 0) {
+                        const targetSamples = 3600;
+                        const factor = Math.max(1, Math.floor(rawHourData.length / targetSamples));
+                        
+                        if (factor > 1) {
+                            for (let i = 0; i < rawHourData.length; i += factor) {
+                                const blockEnd = Math.min(i + factor, rawHourData.length);
+                                const block = rawHourData.slice(i, blockEnd);
+                                
+                                const minVal = Math.min(...block);
+                                const maxVal = Math.max(...block);
+                                const avgTime = rawTimeData[i];
+                                
+                                timeData.push(avgTime);
+                                hourData.push(minVal);
+                                timeData.push(avgTime);
+                                hourData.push(maxVal);
+                            }
+                        } else {
+                            timeData = rawTimeData;
+                            hourData = rawHourData;
+                        }
+                    } else {
+                        timeData = rawTimeData;
+                        hourData = rawHourData;
                     }
                 }
                 
@@ -854,14 +888,34 @@
                 });
             }
             
+            let titleText, titleFontSize;
+            
+            if (isMobile) {
+                titleText = `${currentStation.code} - ${currentStation.name} (${currentChannel}) - ${dateStr} UTC - [Downsampled]`;
+                
+                const titleLength = titleText.length;
+                if (titleLength > 60) {
+                    titleFontSize = 9;
+                } else if (titleLength > 50) {
+                    titleFontSize = 10;
+                } else if (titleLength > 40) {
+                    titleFontSize = 11;
+                } else {
+                    titleFontSize = 12;
+                }
+            } else {
+                titleText = `${currentStation.code} - ${currentStation.name} (${currentChannel}) - ${dateStr} UTC`;
+                titleFontSize = 16;
+            }
+            
             const layout = {
                 title: {
-                    text: `${currentStation.code} - ${currentStation.name} (${currentChannel}) - ${dateStr} UTC`,
-                    font: { size: 16, color: '#60a5fa' }
+                    text: titleText,
+                    font: { size: titleFontSize, color: '#60a5fa' }
                 },
                 paper_bgcolor: '#0a0e1a',
                 plot_bgcolor: '#0f1729',
-                height: 1600,
+                height: isMobile ? 2000 : 1600,
                 margin: { l: 100, r: 40, t: 60, b: 60 },
                 xaxis: {
                     title: 'Time (minutes)',
@@ -877,10 +931,16 @@
                 dragmode: 'zoom'
             };
             
+            const rowHeight = 1.0 / hoursToShow;
+            const gap = 0.002;
+            
             for (let i = 0; i < hoursToShow; i++) {
                 const yAxisKey = i === 0 ? 'yaxis' : `yaxis${i + 1}`;
+                const rowBottom = (hoursToShow - i - 1) * rowHeight;
+                const rowTop = (hoursToShow - i) * rowHeight;
+                
                 layout[yAxisKey] = {
-                    domain: [(hoursToShow - i - 1) / hoursToShow + 0.005, (hoursToShow - i) / hoursToShow - 0.005],
+                    domain: [rowBottom + gap, rowTop - gap],
                     anchor: 'x',
                     showticklabels: true,
                     side: 'left',

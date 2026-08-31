@@ -1,7 +1,7 @@
 TÜRKİYE'NİN İLK HALKA AÇIK SİSMİK AKTİVİTE MONİTÖRÜ
-Sürüm 1.0, 2025
+Sürüm 2.0, 2026
 
-Copyright (c) 2025 A L Y E N
+Copyright (c) 2026 A L Y E N
 
 AŞAĞIDAKİ KOŞULLARA TABİ OLMAK KAYDIYLA, BU YAZILIM VE İLGİLİ BELGELER ("YAZILIM")
 BEDELSİZ OLARAK KULLANILABİLİR:
@@ -16,11 +16,10 @@ BEDELSİZ OLARAK KULLANILABİLİR:
    Kullanıcılar aşağıdaki haklara sahiptir:
    a) Yazılımı kişisel veya eğitim amaçlı kullanma
    b) Kaynak kodunu inceleme ve öğrenme
-   c) Yazılımı fork etme ve geliştirme
 
 3. KISITLAMALAR
    Kullanıcılar aşağıdakileri YAPAMAZ:
-   a) Ticari amaçla kullanım (ödülü hizmetler, SaaS, vb.)
+   a) Ticari amaçla kullanım (ödüllü hizmetler, yarışmalar, vb.)
    b) Yazılımı olduğu gibi veya değiştirilmiş halde yeniden dağıtım
    c) Yazılımı başka projelerde kütüphane/component olarak kullanma
    d) Orijinal yazarın açık izni olmadan kodun önemli bölümlerini kopyalama

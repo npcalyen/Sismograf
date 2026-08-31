@@ -2,10 +2,12 @@
 
 📖 Türkçe | Turkish
 🌟 Proje Hakkında
-Türkiye'nin ilk halka açık gerçek zamanlı sismik aktivite monitörü. Bu proje, Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü (KOERI) tarafından sağlanan verilerle çalışarak, sismik aktiviteleri görselleştirmeyi ve izlemeyi amaçlamaktadır.
+Türkiye'nin ilk halka açık gerçek zamanlı sismik aktivite monitörü. Bu proje, Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü (KOERI) ile çeşitli uluslararası FDSN veri merkezlerinden (GFZ, ETH, INGV, NORSAR, RESIF, BGR, SCEDC, BGS) sağlanan verilerle çalışarak, sismik aktiviteleri görselleştirmeyi ve izlemeyi amaçlamaktadır.
 
 🚀 Özellikler
-🗺️ İstasyon Haritası: KOERI istasyonlarının interaktif haritası
+🗺️ İstasyon Haritası: Seçili ağın istasyonlarının interaktif haritası
+
+🌐 Çoklu Veri Kaynağı: KOERI, GFZ, ETH, INGV, NORSAR, RESIF, BGR, SCEDC ve BGS veri merkezleri arasından aynı anda seçim yapabilme
 
 📊 Gerçek Zamanlı Veri: 15 dakikalık her 30 saniyede kendini yenileyen gerçek zamanlı sismik veri
 
@@ -23,7 +25,7 @@ Türkiye'nin ilk halka açık gerçek zamanlı sismik aktivite monitörü. Bu pr
 Frontend: Html
 Backend: Javascript
 
-Veri Kaynağı: KOERI FDSN Web Services (şimdilik)
+Veri Kaynağı: Çoklu FDSN Web Services (KOERI — GFZ — ETH — INGV — NORSAR — RESIF — BGR — SCEDC — BGS)
 
 🌐 Demo: https://sismograf.onrender.com/
 
@@ -31,6 +33,7 @@ Veri Kaynağı: KOERI FDSN Web Services (şimdilik)
 Harici bir şey gerektirmeyen çalışma imkanı.
 
 🎯 Kullanım
+Veri sağlayıcısı ve ağını seçin (veya KOERI varsayılan olarak yüklenir)
 Haritadan istasyon seçin
 Kanal seçin (HHZ, HHN, HHE, vb.)
 Gerçek zamanlı veriyi izleyin
@@ -42,7 +45,9 @@ Atıfta bulunmayı unutmayın.
 Ağacı koruyun, alyen'i sevin. ❤️
 
 🙏 Teşekkür
-- Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü 
+- Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü (KOERI)
+
+- GFZ (GeoFon), ETH (EIDA), INGV (EIDA), NORSAR (EIDA), RESIF (EIDA), BGR (EIDA), SCEDC ve BGS veri merkezleri
 
 - University of South Carolina - Seisplot (https://github.com/crotwell/seisplotjs)
 
@@ -61,10 +66,12 @@ Bu proje eğitim ve araştırma amaçlıdır. Resmi kaynaklarını takip edin.
 
 🇺🇸 Türkiye's First Public Seismic Activity Monitor
 📖 About the Project
-Turkey's first public real-time seismic activity monitor. This project operates using data provided by the Bogazici University Kandilli Observatory and Earthquake Research Institute (KOERI), aiming to visualize and monitor seismic activities.
+Turkey's first public real-time seismic activity monitor. This project operates using data provided by the Bogazici University Kandilli Observatory and Earthquake Research Institute (KOERI) as well as various international FDSN data centers (GFZ, ETH, INGV, NORSAR, RESIF, BGR, SCEDC, BGS), aiming to visualize and monitor seismic activities.
 
 🚀 Features
-🗺️ Station Map: Interactive map of KOERI stations
+🗺️ Station Map: Interactive map of the selected network's stations
+
+🌐 Multi Data Source: Choose between KOERI, GFZ, ETH, INGV, NORSAR, RESIF, BGR, SCEDC and BGS data centers
 
 📊 Real-Time Data: 15-minute real-time seismic data that refreshes every 30 seconds
 
@@ -82,7 +89,7 @@ Turkey's first public real-time seismic activity monitor. This project operates 
 Frontend: Html
 Backend: JavaScript
 
-Data Source: KOERI FDSN Web Services (for now)
+Data Source: Multiple FDSN Web Services (KOERI — GFZ — ETH — INGV — NORSAR — RESIF — BGR — SCEDC — BGS)
 
 🌐 Demo
 https://sismograf.onrender.com/
@@ -91,6 +98,7 @@ https://sismograf.onrender.com/
 No external requirements are needed to run the project.
 
 🎯 Usage
+Select a data provider and its network (KOERI is loaded by default)
 Select a station from the map
 Choose a channel (HHZ, HHN, HHE, etc.)
 Monitor real-time data
@@ -102,7 +110,9 @@ Please remember to give credit.
 Protect the tree, love alyen. ❤️
 
 🙏 Acknowledgments
-Bogazici University Kandilli Observatory and Earthquake Research Institute
+Bogazici University Kandilli Observatory and Earthquake Research Institute (KOERI)
+
+GFZ (GeoFon), ETH (EIDA), INGV (EIDA), NORSAR (EIDA), RESIF (EIDA), BGR (EIDA), SCEDC and BGS data centers
 
 University of South Carolina - @Seisplot (https://github.com/crotwell/seisplotjs)
 

@@ -9,8 +9,24 @@
 </head>
 <body>
     <div id="topBar">
-          <h1><span class="flag-red">Türkiye</span>'nin İlk Halka Açık Sismik Aktivite Monitörü</h1>
+        <h1><span class="flag-red">Türkiye</span>'nin İlk Halka Açık Sismik Aktivite Monitörü</h1>
         <p class="gold-text">Bu platformda, Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü'nün sağladığı veriler kullanılmaktadır. Sundukları değerli veriler için teşekkür ederiz.</p>
+        <div class="network-picker">
+            <select id="providerSelect" title="Select data provider">
+                <option value="koeri">KOERI</option>
+                <option value="gfz">GFZ</option>
+                <option value="eth">ETH</option>
+                <option value="ingv">INGV</option>
+                <option value="norsar">NORSAR</option>
+                <option value="resif">RESIF</option>
+                <option value="bgr">BGR</option>
+                <option value="scedc">SCEDC</option>
+                <option value="bgs">BGS</option>
+            </select>
+            <select id="networkSelect" title="Select network">
+                <option value="">Loading…</option>
+            </select>
+        </div>
     </div>
 
     <div id="mapContainer">
@@ -19,7 +35,8 @@
 
     <div id="bottomBar">
 		<a href="https://bsky.app/profile/npcalyen.bsky.social">© A L Y E N </a>
-        <p>2023 - 2026 (v.?)</p>
+        <p>2023 - 2026 (beta)</p>
+        <p class="citizen-science">a citizen science project</p>
     </div>
     
     <div id="sidebar">

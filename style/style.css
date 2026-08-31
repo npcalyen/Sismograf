@@ -8,6 +8,34 @@
     filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%);
 }
 
+.leaflet-interactive {
+    outline: none !important;
+}
+
+.leaflet-bar.leaflet-control-zoom,
+.leaflet-control-zoom {
+    border: none !important;
+    box-shadow: none !important;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+    width: 42px !important;
+    height: 42px !important;
+    line-height: 42px !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.25) !important;
+    color: #fbbf24 !important;
+    transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.leaflet-control-zoom a.leaflet-control-zoom-out { border-bottom: none !important; }
+
+.leaflet-control-zoom a:hover { background: rgba(251, 191, 36, 0.18) !important; }
+
 html, body {
     height: 100%;
     overflow: hidden;
@@ -43,6 +71,56 @@ body {
     color: #60a5fa;
 }
 
+.network-picker {
+    margin: 8px 0 0;
+    text-align: left;
+    z-index: 1001;
+}
+
+#networkSelect {
+    background: #0a0e27;
+    color: #e2e8f0;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    max-width: 150px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#providerSelect {
+    background: #0a0e27;
+    color: #e2e8f0;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    max-width: 120px;
+    outline: none;
+    margin-right: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.data-source-label {
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: #60a5fa;
+    text-transform: uppercase;
+}
+
+#networkSelect:hover,
+#providerSelect:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.25);
+}
+
 #topBar p {
     font-size: 11px;
     margin: 0;
@@ -55,7 +133,6 @@ body {
     overflow: hidden;
     min-height: 0;
     width: 100%;
-    /* BottomBar yüksekliği kadar alt padding */
     padding-bottom: 60px;
 }
 
@@ -113,9 +190,31 @@ body {
     font-size: 11px;
 }
 
+#bottomBar p.citizen-science {
+    margin-top: 4px;
+    color: #00e676;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    text-shadow: 0 0 6px rgba(0, 230, 118, 0.45);
+}
+
 @media (min-width: 769px) {
     #topBar {
         padding: 15px 20px;
+    }
+    
+    .network-picker {
+        margin-top: 10px;
+    }
+    
+    #networkSelect {
+        font-size: 12px;
+        max-width: 170px;
+    }
+
+    #providerSelect {
+        font-size: 12px;
+        max-width: 130px;
     }
     
     #topBar h1 {
@@ -162,6 +261,24 @@ body {
 }
 
 @media (max-width: 480px) {
+    .network-picker {
+        margin-top: 6px;
+    }
+    
+    #networkSelect {
+        font-size: 11px;
+        padding: 5px 8px;
+        max-width: 130px;
+    }
+
+    #providerSelect {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 5px 8px;
+        max-width: 100px;
+        margin-right: 6px;
+    }
+
     #bottomBar {
         position: fixed !important;
         bottom: 0 !important;
@@ -815,7 +932,7 @@ canvas {
     }
 }
 
-/* Türk bayrağı kırmızısı için hex: #E30A17 */
+/* Türk bayrağı kırmızısı hex: #E30A17 */
 .flag-red { color: #E30A17; font-weight: bold; }
 
 .gold-text {

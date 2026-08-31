@@ -13,3 +13,9 @@ bu da yüksek bellek tüketimine neden oluyor ancak desktop cihazların daha yü
 
 Frontend: 
 - Layout, desktop ve mobil cihazlar için iyileştirildi. Mobil cihazlarda daha uygun bir kullanıcı arayüzü sağlandı.
+
+V.1.0.2
+================================================================================================================================================================
+- Harita API bug fix
+- Bir sürü başka network eklendi
+- Beta gözlem süreci

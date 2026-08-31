@@ -13,8 +13,54 @@
  * @version 1.0.2
  */
         const KOERI_STATION_URL = 'https://eida.koeri.boun.edu.tr/fdsnws/station/1/query?network=KO&level=channel&format=xml';
-        const KOERI_DATASELECT_URL = 'https://eida.koeri.boun.edu.tr/fdsnws/dataselect/1/query';
-        
+
+        const DATA_SOURCES = {
+            koeri: {
+                station: 'https://eida.koeri.boun.edu.tr/fdsnws/station/1/query',
+                dataselect: 'https://eida.koeri.boun.edu.tr/fdsnws/dataselect/1/query'
+            },
+            gfz: {
+				// GFZ - Almanya
+                station: 'https://geofon.gfz-potsdam.de/fdsnws/station/1/query',
+                dataselect: 'https://geofon.gfz-potsdam.de/fdsnws/dataselect/1/query'
+            },
+            eth: {
+                // EIDA - ETH Zürih (İsviçre)
+                station: 'https://eida.ethz.ch/fdsnws/station/1/query',
+                dataselect: 'https://eida.ethz.ch/fdsnws/dataselect/1/query'
+            },
+            ingv: {
+                // EIDA - INGV (İtalya)
+                station: 'https://webservices.ingv.it/fdsnws/station/1/query',
+                dataselect: 'https://webservices.ingv.it/fdsnws/dataselect/1/query'
+            },
+            norsar: {
+                // EIDA - NORSAR (Norveç)
+                station: 'https://eida.geo.uib.no/fdsnws/station/1/query',
+                dataselect: 'https://eida.geo.uib.no/fdsnws/dataselect/1/query'
+            },
+            resif: {
+                // EIDA - RESIF (Fransa)
+                station: 'https://ws.resif.fr/fdsnws/station/1/query',
+                dataselect: 'https://ws.resif.fr/fdsnws/dataselect/1/query'
+            },
+            bgr: {
+                // EIDA - BGR (Almanya)
+                station: 'https://eida.bgr.de/fdsnws/station/1/query',
+                dataselect: 'https://eida.bgr.de/fdsnws/dataselect/1/query'
+            },
+            scedc: {
+                // SCEDC (Güney Kaliforniya)
+                station: 'https://service.scedc.caltech.edu/fdsnws/station/1/query',
+                dataselect: 'https://service.scedc.caltech.edu/fdsnws/dataselect/1/query'
+            },
+            bgs: {
+                // BGS (İngiltere)
+                station: 'https://eida.bgs.ac.uk/fdsnws/station/1/query',
+                dataselect: 'https://eida.bgs.ac.uk/fdsnws/dataselect/1/query'
+            }
+        };
+
         let map, stations = [], currentStation = null, currentChannel = null;
         let refreshInterval = null;
         let availableChannels = [];
@@ -22,9 +68,14 @@
         let currentHelicorderDate = null;
         let currentHelicorderSampleRate = null;
         let hasDataAvailable = false;
+        let stationLayer = null;
+        let selectedMarker = null;
 
-        // Initialize map
         function initMap() {
+            stationLayer = L.layerGroup().addTo(map);
+        }
+
+        function createMap() {
             map = L.map('map', {
                 center: [39.0, 35.0],
                 zoom: 6,
@@ -34,6 +85,7 @@
 			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 				attribution: '&copy; OpenStreetMap contributors'
 			}).addTo(map);
+            initMap();
         }
 
         async function loadStations() {
@@ -97,7 +149,7 @@
                         }
                         
                         if (!isNaN(lat) && !isNaN(lon) && channels.length > 0) {
-                            stations.push({ code, name, lat, lon, elev, channels, network: 'KO' });
+                            stations.push({ code, name, lat, lon, elev, channels, network: 'KO', dataSource: 'koeri' });
                         } else if (channels.length === 0) {
                             console.warn(`Station ${code} has no channels, skipping`);
                         }
@@ -125,7 +177,28 @@
             }
         }
 
+        function highlightStationMarker(marker) {
+            if (selectedMarker && selectedMarker !== marker) {
+                selectedMarker.setStyle({
+                    radius: 6,
+                    color: '#fff',
+                    weight: 2,
+                    fillOpacity: 0.8
+                });
+            }
+            marker.setStyle({
+                radius: 8,
+                color: '#fbbf24',
+                weight: 3,
+                fillOpacity: 1
+            });
+            marker.bringToFront();
+            selectedMarker = marker;
+        }
+
         function plotStations() {
+            stationLayer.clearLayers();
+            selectedMarker = null;
             stations.forEach(station => {
                 const marker = L.circleMarker([station.lat, station.lon], {
                     radius: 6,
@@ -134,10 +207,211 @@
                     weight: 2,
                     opacity: 1,
                     fillOpacity: 0.8
-                }).addTo(map);
+                }).addTo(stationLayer);
 
-                marker.on('click', () => openStation(station));
+                marker.bindTooltip(`${station.code} (${station.network})`, { direction: 'top' });
+                marker.on('click', () => {
+                    highlightStationMarker(marker);
+                    openStation(station);
+                });
             });
+        }
+
+        function randomMarkerColor() {
+            const hues = [210, 0, 120, 40, 280, 30, 180, 340, 90, 270, 150, 55];
+            const hue = hues[Math.floor(Math.random() * hues.length)];
+            const sat = 85 + Math.floor(Math.random() * 10);
+            const light = 55 + Math.floor(Math.random() * 15);
+            return `hsl(${hue}, ${sat}%, ${light}%)`;
+        }
+
+        async function loadNetworks(providerKey, autoLoad) {
+            const select = document.getElementById('networkSelect');
+            const src = DATA_SOURCES[providerKey];
+
+            if (!src) {
+                select.innerHTML = '<option value="">No provider selected</option>';
+                return;
+            }
+
+            if (providerKey === 'koeri') {
+                select.innerHTML = '<option value="KO">KO - Kandilli</option>';
+                select.value = 'KO';
+                select.focus();
+                if (autoLoad) {
+                    updateStatus(`Provider KOERI: KO network — loading stations…`);
+                    loadNetworkStations();
+                }
+                return;
+            }
+
+            select.innerHTML = '<option value="">Loading networks…</option>';
+            try {
+                const res = await fetch(`${src.station}?level=network&format=text`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const text = await res.text();
+                const seen = new Map();
+                text.split('\n').forEach(line => {
+                    if (!line || line.startsWith('#')) return;
+                    const p = line.split('|');
+                    const code = (p[0] || '').trim();
+                    if (!code || seen.has(code)) return;
+                    seen.set(code, { code, name: (p[1] || '').trim() });
+                });
+
+                select.innerHTML = '<option value="">— Select network —</option>';
+                [...seen.values()]
+                    .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+                    .forEach(n => {
+                        const opt = document.createElement('option');
+                        opt.value = n.code;
+                        opt.textContent = n.code + (n.name ? ` - ${n.name}` : '');
+                        select.appendChild(opt);
+                    });
+                updateStatus(`Provider ${providerKey.toUpperCase()}: ${seen.size} networks loaded`);
+            } catch (e) {
+                console.error('Network load error:', e);
+                select.innerHTML = '<option value="">Failed to load networks</option>';
+            }
+        }
+
+        async function loadNetworkStations() {
+            const select = document.getElementById('networkSelect');
+            const network = select.value;
+            if (!network) return;
+            const status = document.getElementById('statusBar');
+            status.style.display = 'flex';
+
+            stationLayer.clearLayers();
+            selectedMarker = null;
+            updateStatus(`Loading stations for network ${network}...`);
+
+            const providerKey = document.getElementById('providerSelect').value || 'koeri';
+            const src = DATA_SOURCES[providerKey];
+
+            try {
+                if (!src) throw new Error('No data source for provider ' + providerKey);
+                const res = await fetch(`${src.station}?network=${encodeURIComponent(network)}&level=station&format=text`);
+                if (res.status === 502 || res.status === 503) {
+                    updateStatus(`The ${providerKey.toUpperCase()} data server is temporarily unavailable (HTTP ${res.status}). It may be under maintenance — please try again later.`);
+                    return;
+                }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const text = await res.text();
+                const arr = [];
+                text.split('\n').forEach(line => {
+                    if (!line || line.startsWith('#')) return;
+                    const p = line.split('|');
+                    if (p.length < 6) return;
+                    const lat = parseFloat(p[2]);
+                    const lon = parseFloat(p[3]);
+                    if (isNaN(lat) || isNaN(lon)) return;
+                    arr.push({
+                        code: p[1].trim(),
+                        network,
+                        dataSource: providerKey,
+                        lat,
+                        lon,
+                        elev: parseFloat(p[4]) || 0,
+                        name: (p[5] || '').trim() || p[1].trim()
+                    });
+                });
+
+                if (arr.length === 0) {
+                    updateStatus(`No station data available for network ${network} (${providerKey.toUpperCase()}).`);
+                    return;
+                }
+
+                updateStatus(`Displaying ${arr.length} stations for ${network} (${providerKey.toUpperCase()})...`);
+
+                arr.forEach(st => {
+                    const color = randomMarkerColor();
+                    const marker = L.circleMarker([st.lat, st.lon], {
+                        radius: 6,
+                        fillColor: color,
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(stationLayer);
+                    marker.bindTooltip(`${st.code} (${st.network})`, { direction: 'top' });
+                    marker.on('click', () => {
+                        highlightStationMarker(marker);
+                        openStationWithChannels(st);
+                    });
+                });
+
+                const bounds = L.latLngBounds(arr.map(st => [st.lat, st.lon]));
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+
+                updateStatus(`Displayed ${arr.length} stations for ${network}.`);
+            } catch (e) {
+                console.error('Station load error:', e);
+                updateStatus(`Failed to load stations for ${network}: ${e.message}`);
+            }
+        }
+
+        function initNetworks() {
+            const providerSelect = document.getElementById('providerSelect');
+            const networkSelect = document.getElementById('networkSelect');
+            if (!networkSelect) return;
+            if (providerSelect) {
+                providerSelect.addEventListener('change', () => loadNetworks(providerSelect.value, true));
+            }
+            networkSelect.addEventListener('change', loadNetworkStations);
+            const initial = providerSelect ? providerSelect.value : 'koeri';
+            loadNetworks(initial, false);
+        }
+
+        async function openStationWithChannels(station) {
+            updateStatus(`Loading channels for ${station.code} (${station.network})...`);
+            const ds = DATA_SOURCES[station.dataSource] || DATA_SOURCES.gfz;
+            try {
+                const xmlText = await fetchStationChannelsXML(ds.station, station.network, station.code);
+                station.channels = parseStationChannelsXML(xmlText);
+                if (station.channels.length === 0) {
+                    updateStatus(`No channels found for ${station.code}.`);
+                    availableChannels = [];
+                    currentStation = station;
+                    currentChannel = null;
+                    document.getElementById('sidebar').classList.add('open');
+                    renderChannelSelector();
+                    return;
+                }
+                openStation(station);
+                updateStatus(`Loaded ${station.channels.length} channels for ${station.code} (${station.network}).`);
+            } catch (e) {
+                console.error('Channel load error:', e);
+                updateStatus(`Failed to load channels for ${station.code}: ${e.message}`);
+            }
+        }
+
+        async function fetchStationChannelsXML(stationBase, network, stationCode) {
+            const url = `${stationBase}?network=${encodeURIComponent(network)}&station=${encodeURIComponent(stationCode)}&level=channel&format=xml`;
+            const res = await fetch(url);
+            if (res.status === 204) return '';
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.text();
+        }
+
+        function parseStationChannelsXML(xmlText) {
+            const channels = [];
+            if (!xmlText) return channels;
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+            if (xmlDoc.querySelector('parsererror')) return channels;
+            const channelElements = xmlDoc.getElementsByTagName('Channel');
+            for (let chanEl of channelElements) {
+                const chanCode = chanEl.getAttribute('code');
+                const locCode = chanEl.getAttribute('locationCode') || '';
+                if (!chanCode) continue;
+                channels.push({
+                    code: chanCode,
+                    locationCode: locCode,
+                    fullCode: `${locCode ? locCode + '.' : ''}${chanCode}`
+                });
+            }
+            return channels;
         }
 
         function openStation(station) {
@@ -268,7 +542,8 @@
                     return;
                 }
                 
-                const url = `${KOERI_DATASELECT_URL}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
+                const ds = DATA_SOURCES[currentStation.dataSource] || DATA_SOURCES.koeri;
+                const url = `${ds.dataselect}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode || '--'}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
                 
                 //console.log('Fetching data from:', url);
                 
@@ -292,7 +567,8 @@
                     if (response.status === 404) {
                         showError('Data endpoint not found. Please check the station configuration.');
                     } else if (response.status === 400) {
-                        showError('Invalid request parameters. The channel may not be available.');
+                        console.error('Dataselect 400 for URL:', url);
+                        showError(`Invalid request for ${currentStation.code} (${currentStation.network}) channel ${currentChannel}. The station/location combination may not be available on this data provider.`);
                     } else {
                         showError(`Server error: ${response.status} - ${response.statusText}`);
                     }
@@ -372,8 +648,8 @@
                 
                 const processedSeismogram = {
                     y: allData,
-                    startTime: seismogram.startTime || (seismogram.segments && seismogram.segments[0].startTime),
-                    endTime: seismogram.endTime || (seismogram.segments && seismogram.segments[seismogram.segments.length - 1].endTime),
+                    startTime: startTime,
+                    endTime: endTime,
                     sampleRate: seismogram.sampleRate || (seismogram.segments && seismogram.segments[0].sampleRate)
                 };
                 
@@ -394,7 +670,8 @@
                 hideCharts();
                 
                 if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                    showError('Network error: Unable to connect to KOERI server. Please check your internet connection.');
+                    const src = currentStation ? (currentStation.dataSource || 'data') : 'data';
+                    showError(`Network error: Unable to reach the ${src.toUpperCase()} data server. Please check your internet connection.`);
                 } else if (error.message.includes('CORS')) {
                     showError('Cross-origin request blocked. The server may not allow browser access.');
                 } else {
@@ -433,7 +710,7 @@
             const mean = data.reduce((a, b) => a + b, 0) / data.length;
             const centeredData = data.map(d => d - mean);
             
-            const max = Math.max(...centeredData.map(Math.abs));
+            const max = centeredData.reduce((m, v) => m > Math.abs(v) ? m : Math.abs(v), 0);
             
             if (max === 0 || !isFinite(max)) {
                 ctx.fillStyle = '#94a3b8';
@@ -466,14 +743,22 @@
             
             ctx.fillStyle = '#94a3b8';
             ctx.font = '11px sans-serif';
-            
+
+            const toLabel = (t) => {
+                const d = t instanceof Date ? t : new Date(t);
+                if (isNaN(d.getTime())) return '';
+                const hm = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                const sec = String(d.getSeconds()).padStart(2, '0');
+                return hm + ':' + sec;
+            };
+
             if (seismogram.startTime && seismogram.endTime) {
-                const startTimeStr = seismogram.startTime.toISOString().substr(11, 8);
-                const endTimeStr = seismogram.endTime.toISOString().substr(11, 8);
-                
+                const startTimeStr = toLabel(seismogram.startTime);
+                const endTimeStr = toLabel(seismogram.endTime);
+
                 ctx.textAlign = 'left';
                 ctx.fillText(startTimeStr, 5, height - 5);
-                
+
                 ctx.textAlign = 'right';
                 ctx.fillText(endTimeStr, width - 5, height - 5);
             }
@@ -735,7 +1020,8 @@
                 const startTime = new Date(dateStr + 'T00:00:00.000Z');
                 const endTime = new Date(dateStr + 'T23:59:59.999Z');
 
-                const url = `${KOERI_DATASELECT_URL}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
+                const ds = DATA_SOURCES[currentStation.dataSource] || DATA_SOURCES.koeri;
+                const url = `${ds.dataselect}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode || '--'}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
                 
                 //console.log('Fetching 24-hour data from:', url);
                 
@@ -839,33 +1125,9 @@
                         rawTimeData.push(timeOffset / 60);
                         rawHourData.push(data[i] - mean);
                     }
-                    
-                    if (isMobile && rawHourData.length > 0) {
-                        const targetSamples = 3600;
-                        const factor = Math.max(1, Math.floor(rawHourData.length / targetSamples));
-                        
-                        if (factor > 1) {
-                            for (let i = 0; i < rawHourData.length; i += factor) {
-                                const blockEnd = Math.min(i + factor, rawHourData.length);
-                                const block = rawHourData.slice(i, blockEnd);
-                                
-                                const minVal = Math.min(...block);
-                                const maxVal = Math.max(...block);
-                                const avgTime = rawTimeData[i];
-                                
-                                timeData.push(avgTime);
-                                hourData.push(minVal);
-                                timeData.push(avgTime);
-                                hourData.push(maxVal);
-                            }
-                        } else {
-                            timeData = rawTimeData;
-                            hourData = rawHourData;
-                        }
-                    } else {
-                        timeData = rawTimeData;
-                        hourData = rawHourData;
-                    }
+
+                    timeData = rawTimeData;
+                    hourData = rawHourData;
                 }
                 
                 const hourStr = String(hour).padStart(2, '0');
@@ -966,7 +1228,8 @@
             Plotly.newPlot(container, traces, layout, config);
         }
 
-        initMap();
+        createMap();
         loadStations();
+        initNetworks();
 
         document.getElementById('waveformCanvas').addEventListener('click', openHelicorder);

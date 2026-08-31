@@ -1120,7 +1120,9 @@
                     const rawHourData = [];
                     const rawTimeData = [];
                     
-                    for (let i = startIdx; i < endIdx; i++) {
+                    // Mobil downsampling
+                    const stride = isMobile ? Math.max(1, Math.ceil((endIdx - startIdx) / 5000)) : 1;
+                    for (let i = startIdx; i < endIdx; i += stride) {
                         const timeOffset = (i - startIdx) / sampleRate;
                         rawTimeData.push(timeOffset / 60);
                         rawHourData.push(data[i] - mean);
@@ -1144,7 +1146,7 @@
                     xaxis: 'x',
                     yaxis: `y${hour + 1}`,
                     name: `${hourStr}:00`,
-                    hovertemplate: hourData.length > 0 ? `<b>Time: ${hourStr}:%{x:.1f} min</b><extra></extra>` : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
+                    hovertemplate: hourData.length > 0 ? `<b>${hourStr}:%{x:.1f}min</b><br>Amplitude: %{y:.3f}<extra></extra>` : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
                     showlegend: false
                 });
             }

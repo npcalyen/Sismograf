@@ -2,7 +2,7 @@
  * TÜRKİYE'NİN İLK HALKA AÇIK SİSMİK AKTİVİTE MONİTÖRÜ
  * 
  * @license
- * Copyright (c) 2025 A L Y E N
+ * Copyright (c) 2026 A L Y E N
  * 
  * Bu yazılım özel lisans ile korunmaktadır.
  * TİCARİ kullanım KESİNLİKLE YASAKTIR.
@@ -10,7 +10,7 @@
  * Eğitim ve kişisel kullanım için açık kaynak kod.
  *
  * @author A L Y E N
- * @version 1.0.1
+ * @version 1.0.2
  */
         const KOERI_STATION_URL = 'https://eida.koeri.boun.edu.tr/fdsnws/station/1/query?network=KO&level=channel&format=xml';
         const KOERI_DATASELECT_URL = 'https://eida.koeri.boun.edu.tr/fdsnws/dataselect/1/query';
@@ -31,10 +31,9 @@
                 zoomControl: true
             });
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap contributors © CARTO',
-                maxZoom: 19
-            }).addTo(map);
+			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+				attribution: '&copy; OpenStreetMap contributors'
+			}).addTo(map);
         }
 
         async function loadStations() {

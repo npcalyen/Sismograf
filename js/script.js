@@ -58,6 +58,11 @@
                 // BGS (İngiltere)
                 station: 'https://eida.bgs.ac.uk/fdsnws/station/1/query',
                 dataselect: 'https://eida.bgs.ac.uk/fdsnws/dataselect/1/query'
+            },
+            earthscope: {
+                // EarthScope (ABD)
+                station: 'https://service.earthscope.org/fdsnws/station/1/query',
+                dataselect: 'https://service.earthscope.org/fdsnws/dataselect/1/query'
             }
         };
 
@@ -70,6 +75,9 @@
         let hasDataAvailable = false;
         let stationLayer = null;
         let selectedMarker = null;
+        let activeDataController = null;
+        let currentViewDate = null;
+        let loadingRafId = null;
 
         function initMap() {
             stationLayer = L.layerGroup().addTo(map);
@@ -434,7 +442,34 @@
                 refreshInterval = null;
             }
             
+            resetToLiveMode();
             renderChannelSelector();
+        }
+
+        function resetToLiveMode() {
+            if (activeDataController) {
+                activeDataController.abort();
+                activeDataController = null;
+            }
+            cancelAnimationFrame(loadingRafId);
+            loadingRafId = null;
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            helicorderData = null;
+
+            currentViewDate = null;
+            const dayInput = document.getElementById('daySelect');
+            const liveBtn = document.getElementById('liveModeBtn');
+            const dayLabel = document.getElementById('dayPickerLabel');
+            if (dayInput) dayInput.value = '';
+            if (dayLabel) dayLabel.textContent = 'Select date';
+            if (liveBtn) liveBtn.classList.add('active');
+            document.getElementById('timeWindowText').textContent = '15 min';
+            clearMessages();
+            clearError();
+            updateChartTitles();
         }
 
         function renderChannelSelector() {
@@ -475,7 +510,9 @@
                 
                 loadSeismicData();
                 
-                refreshInterval = setInterval(loadSeismicData, 30000);
+                if (!currentViewDate) {
+                    refreshInterval = setInterval(loadSeismicData, 30000);
+                }
             }
         }
 
@@ -489,6 +526,12 @@
 
         function closeSidebar() {
             document.getElementById('sidebar').classList.remove('open');
+            if (activeDataController) {
+                activeDataController.abort();
+                activeDataController = null;
+            }
+            cancelAnimationFrame(loadingRafId);
+            loadingRafId = null;
             if (refreshInterval) {
                 clearInterval(refreshInterval);
                 refreshInterval = null;
@@ -512,7 +555,9 @@
             
             loadSeismicData();
             
-            refreshInterval = setInterval(loadSeismicData, 30000);
+            if (!currentViewDate) {
+                refreshInterval = setInterval(loadSeismicData, 30000);
+            }
         }
 
         function updateChartTitles() {
@@ -528,7 +573,18 @@
                 showError('No station or channel selected');
                 return;
             }
-            
+
+            if (currentViewDate) {
+                await loadDayOverview();
+                return;
+            }
+
+            if (activeDataController) {
+                activeDataController.abort();
+            }
+            const controller = new AbortController();
+            activeDataController = controller;
+
             try {
                 clearError();
                 
@@ -547,7 +603,7 @@
                 
                 //console.log('Fetching data from:', url);
                 
-                const response = await fetch(url);
+                const response = await fetch(url, { signal: controller.signal });
                 
                 if (response.status === 204) {
                     hasDataAvailable = false;
@@ -650,7 +706,8 @@
                     y: allData,
                     startTime: startTime,
                     endTime: endTime,
-                    sampleRate: seismogram.sampleRate || (seismogram.segments && seismogram.segments[0].sampleRate)
+                    sampleRate: seismogram.sampleRate || (seismogram.segments && seismogram.segments[0].sampleRate),
+                    utc: true
                 };
                 
                 hasDataAvailable = true;
@@ -659,12 +716,14 @@
                 drawWaveform(processedSeismogram);
                 drawSpectrogram(processedSeismogram);
                 
-                const updateTime = new Date().toLocaleTimeString('tr-TR');
+                const updateTime = new Date().toLocaleTimeString('tr-TR', { timeZone: 'UTC' }) + ' (UTC)';
                 document.getElementById('lastUpdate').textContent = updateTime;
                 clearMessages();
                 showInfo(`Data updated at ${updateTime} (${allData.length} samples)`);
                 
             } catch (error) {
+                if (error.name === 'AbortError') return;
+
                 console.error('Error loading seismic data:', error);
                 hasDataAvailable = false;
                 hideCharts();
@@ -680,6 +739,171 @@
             }
         }
 
+        async function loadDayOverview() {
+            const dateStr = currentViewDate;
+            const canvas = document.getElementById('waveformCanvas');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * dpr;
+            canvas.height = canvas.offsetHeight * dpr;
+            ctx.scale(dpr, dpr);
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+
+            ctx.fillStyle = '#0f1729';
+            ctx.fillRect(0, 0, width, height);
+            clearMessages();
+            clearError();
+            drawWaveformLoading('Loading 24-hour data...');
+            document.getElementById('waveformContainer').classList.add('visible');
+
+            if (activeDataController) {
+                activeDataController.abort();
+            }
+            const controller = new AbortController();
+            activeDataController = controller;
+
+            try {
+                const channel = currentStation.channels.find(c => c.code === currentChannel);
+                if (!channel) return;
+
+                const startTime = new Date(dateStr + 'T00:00:00.000Z');
+                const endTime = new Date(dateStr + 'T23:59:59.000Z');
+
+                const ds = DATA_SOURCES[currentStation.dataSource] || DATA_SOURCES.koeri;
+                const url = `${ds.dataselect}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode || '--'}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
+
+                const response = await fetch(url, { signal: controller.signal });
+
+                if (response.status === 204 || !response.ok) {
+                    drawWaveformEmpty('No data available for this day');
+                    return;
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                if (arrayBuffer.byteLength === 0) {
+                    drawWaveformEmpty('No data available for this day');
+                    return;
+                }
+
+                const dataRecords = seisplotjs.miniseed.parseDataRecords(arrayBuffer);
+                const seismograms = seisplotjs.miniseed.seismogramPerChannel(dataRecords);
+                if (!seismograms || seismograms.length === 0) {
+                    drawWaveformEmpty('No data available for this day');
+                    return;
+                }
+
+                const seismogram = seismograms[0];
+
+                let allData = [];
+                let startTimeActual = null;
+                let endTimeActual = null;
+
+                if (seismogram.segments && seismogram.segments.length > 0) {
+                    seismogram.segments.forEach(segment => {
+                        if (segment.y && segment.y.length > 0) {
+                            if (!startTimeActual) startTimeActual = segment.startTime;
+                            endTimeActual = segment.endTime || endTimeActual;
+                            allData = allData.concat(Array.from(segment.y));
+                        }
+                    });
+                } else if (seismogram.y && seismogram.y.length > 0) {
+                    allData = Array.from(seismogram.y);
+                    startTimeActual = seismogram.startTime;
+                    endTimeActual = seismogram.endTime;
+                }
+
+                if (allData.length === 0) {
+                    drawWaveformEmpty('No data available for this day');
+                    return;
+                }
+
+                document.getElementById('spectrogramContainer').classList.remove('visible');
+
+                const toJSDate = (t) => (t && typeof t.getTime === 'function') ? new Date(t.getTime()) : new Date(startTime);
+
+                const processedSeismogram = {
+                    y: allData,
+                    startTime: startTimeActual ? toJSDate(startTimeActual) : startTime,
+                    endTime: endTimeActual ? toJSDate(endTimeActual) : endTime,
+                    sampleRate: seismogram.sampleRate || (seismogram.segments && seismogram.segments[0].sampleRate),
+                    utc: true
+                };
+
+                document.getElementById('waveformContainer').classList.add('visible');
+                drawWaveform(processedSeismogram);
+
+                document.getElementById('lastUpdate').textContent = dateStr + ' (UTC)';
+                clearMessages();
+
+            } catch (error) {
+                cancelAnimationFrame(loadingRafId);
+                loadingRafId = null;
+                if (error.name === 'AbortError') return;
+                console.error('Error loading day overview:', error);
+                drawWaveformEmpty('Failed to load data: ' + error.message);
+            }
+        }
+
+        function drawWaveformEmpty(message) {
+            cancelAnimationFrame(loadingRafId);
+            const canvas = document.getElementById('waveformCanvas');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * dpr;
+            canvas.height = canvas.offsetHeight * dpr;
+            ctx.scale(dpr, dpr);
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+            ctx.fillStyle = '#0f1729';
+            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(message, width / 2, height / 2);
+            document.getElementById('waveformContainer').classList.add('visible');
+        }
+
+        function drawWaveformLoading(message) {
+            cancelAnimationFrame(loadingRafId);
+            const canvas = document.getElementById('waveformCanvas');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * dpr;
+            canvas.height = canvas.offsetHeight * dpr;
+            ctx.scale(dpr, dpr);
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+
+            const grad = ctx.createLinearGradient(0, 0, 0, height);
+            grad.addColorStop(0, '#0f1729');
+            grad.addColorStop(1, '#0b1120');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            const cx = width / 2;
+            const cy = height / 2 - 8;
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+            ctx.stroke();
+
+            const t = Date.now() / 1000;
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 14, t * 3, t * 3 + Math.PI * 1.6);
+            ctx.stroke();
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(message, cx, cy + 40);
+
+            loadingRafId = requestAnimationFrame(() => drawWaveformLoading(message));
+        }
+
         function showCharts() {
             document.getElementById('waveformContainer').classList.add('visible');
             document.getElementById('spectrogramContainer').classList.add('visible');
@@ -691,6 +915,7 @@
         }
 
         function drawWaveform(seismogram) {
+            cancelAnimationFrame(loadingRafId);
             const canvas = document.getElementById('waveformCanvas');
             const ctx = canvas.getContext('2d');
             const dpr = window.devicePixelRatio || 1;
@@ -721,35 +946,53 @@
             }
             
             const centerY = height / 2;
-            const stepX = width / centeredData.length;
             const scale = (height * 0.45) / max;
-            
+            const n = centeredData.length;
+            const targetCols = Math.max(1, Math.floor(width));
+
             ctx.beginPath();
             ctx.strokeStyle = '#3b82f6';
             ctx.lineWidth = 1;
-            
-            for (let i = 0; i < centeredData.length; i++) {
-                const x = i * stepX;
-                const y = centerY - (centeredData[i] * scale);
-                
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+
+            if (n <= targetCols * 2) {
+                const stepX = width / n;
+                for (let i = 0; i < n; i++) {
+                    const x = i * stepX;
+                    const y = centerY - (centeredData[i] * scale);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
+                ctx.stroke();
+            } else {
+                const binSize = n / targetCols;
+                for (let c = 0; c < targetCols; c++) {
+                    const s = Math.floor(c * binSize);
+                    const e = Math.min(n, Math.floor((c + 1) * binSize));
+                    if (e <= s) continue;
+                    let mn = Infinity, mx = -Infinity;
+                    for (let i = s; i < e; i++) {
+                        const v = centeredData[i];
+                        if (v < mn) mn = v;
+                        if (v > mx) mx = v;
+                    }
+                    const x = (c + 0.5) * (width / targetCols);
+                    const yMin = centerY - (mn * scale);
+                    const yMax = centerY - (mx * scale);
+                    ctx.moveTo(x, yMin);
+                    ctx.lineTo(x, yMax);
+                }
+                ctx.stroke();
             }
-            
-            ctx.stroke();
             
             ctx.fillStyle = '#94a3b8';
             ctx.font = '11px sans-serif';
 
+            const isUtc = !!seismogram.utc;
             const toLabel = (t) => {
                 const d = t instanceof Date ? t : new Date(t);
                 if (isNaN(d.getTime())) return '';
-                const hm = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                const sec = String(d.getSeconds()).padStart(2, '0');
-                return hm + ':' + sec;
+                const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                if (isUtc) opts.timeZone = 'UTC';
+                return d.toLocaleTimeString('tr-TR', opts);
             };
 
             if (seismogram.startTime && seismogram.endTime) {
@@ -973,9 +1216,9 @@
             document.getElementById('helicorderModal').classList.add('open');
             
             const today = new Date();
-            const dateStr = today.toISOString().split('T')[0];
+            const dateStr = currentViewDate || today.toISOString().split('T')[0];
             document.getElementById('helicorderDate').value = dateStr;
-            document.getElementById('helicorderDate').max = dateStr;
+            document.getElementById('helicorderDate').max = today.toISOString().split('T')[0];
             
             document.getElementById('helicorderTitle').textContent = 
                 `24-Hour Helicorder - ${currentStation.code} - ${currentStation.name} (${currentChannel})`;
@@ -989,7 +1232,13 @@
 
         window.closeHelicorder = function() {
             document.getElementById('helicorderModal').classList.remove('open');
-            
+
+            const plotDiv = document.getElementById('helicorderPlot');
+            if (typeof Plotly !== 'undefined' && plotDiv) {
+                try { Plotly.purge(plotDiv); } catch (e) {}
+            }
+            helicorderData = null;
+
             if (currentStation && currentChannel && !refreshInterval) {
                 refreshInterval = setInterval(loadSeismicData, 30000);
             }
@@ -1144,7 +1393,9 @@
                     xaxis: 'x',
                     yaxis: `y${hour + 1}`,
                     name: `${hourStr}:00`,
-                    hovertemplate: hourData.length > 0 ? `<b>Time: ${hourStr}:%{x:.1f} min</b><extra></extra>` : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
+                    hovertemplate: hourData.length > 0
+                        ? `<b>${hourStr}:%{x:.1f} min</b><br>Amplitude: %{y:.3e}<extra></extra>`
+                        : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
                     showlegend: false
                 });
             }
@@ -1228,8 +1479,76 @@
             Plotly.newPlot(container, traces, layout, config);
         }
 
+        function initDayPicker() {
+            const dayInput = document.getElementById('daySelect');
+            const liveBtn = document.getElementById('liveModeBtn');
+            const trigger = document.getElementById('dayTrigger');
+            const label = document.getElementById('dayPickerLabel');
+
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            dayInput.max = tomorrow.toISOString().split('T')[0];
+
+            const formatDate = (value) => {
+                if (!value) return 'Select date';
+                const d = new Date(value + 'T00:00:00');
+                if (isNaN(d.getTime())) return value;
+                return d.toLocaleDateString('tr-TR');
+            };
+
+            const openPicker = () => {
+                if (!document.getElementById('sidebar').classList.contains('open')) return;
+                try {
+                    if (typeof dayInput.showPicker === 'function') {
+                        trigger.focus();
+                        dayInput.showPicker();
+                    } else {
+                        dayInput.click();
+                    }
+                } catch (e) {
+                    dayInput.click();
+                }
+            };
+
+            trigger.addEventListener('click', openPicker);
+
+            dayInput.addEventListener('change', () => {
+                if (!dayInput.value) {
+                    label.textContent = 'Select date';
+                    resetToLiveMode();
+                    if (refreshInterval) clearInterval(refreshInterval);
+                    if (currentStation && currentChannel) {
+                        loadSeismicData();
+                        refreshInterval = setInterval(loadSeismicData, 30000);
+                    }
+                    return;
+                }
+                if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+                currentViewDate = dayInput.value;
+                liveBtn.classList.remove('active');
+                label.textContent = formatDate(dayInput.value);
+                document.getElementById('timeWindowText').textContent = dayInput.value;
+                updateChartTitles();
+                if (currentStation && currentChannel) {
+                    loadSeismicData();
+                }
+            });
+
+            liveBtn.addEventListener('click', () => {
+                dayInput.value = '';
+                label.textContent = 'Select date';
+                resetToLiveMode();
+                if (refreshInterval) clearInterval(refreshInterval);
+                if (currentStation && currentChannel) {
+                    loadSeismicData();
+                    refreshInterval = setInterval(loadSeismicData, 30000);
+                }
+            });
+        }
+
         createMap();
         loadStations();
         initNetworks();
+        initDayPicker();
 
         document.getElementById('waveformCanvas').addEventListener('click', openHelicorder);

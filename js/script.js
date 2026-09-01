@@ -1395,13 +1395,9 @@
                     xaxis: 'x',
                     yaxis: `y${hour + 1}`,
                     name: `${hourStr}:00`,
-<<<<<<< HEAD
                     hovertemplate: hourData.length > 0
                         ? `<b>${hourStr}:%{x:.1f} min</b><br>Amplitude: %{y:.3e}<extra></extra>`
                         : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
-=======
-                    hovertemplate: hourData.length > 0 ? `<b>${hourStr}:%{x:.1f}min</b><br>Amplitude: %{y:.3f}<extra></extra>` : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
->>>>>>> 93c66bd0339304d4fcb85039d459beaf740ce3b7
                     showlegend: false
                 });
             }

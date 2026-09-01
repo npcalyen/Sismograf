@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TÜRKİYE'NİN İLK HALKA AÇIK SİSMİK AKTİVİTE MONİTÖRÜ
  * 
  * @license

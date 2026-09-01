@@ -1,4 +1,4 @@
-🇹🇷 Türkiye'nin İlk Halka Açık Sismik Aktivite Monitörü | 🇺🇸 Türkiye's First Public Seismic Activity Monitor
+﻿🇹🇷 Türkiye'nin İlk Halka Açık Sismik Aktivite Monitörü | 🇺🇸 Türkiye's First Public Seismic Activity Monitor
 
 📖 Türkçe | Turkish
 🌟 Proje Hakkında

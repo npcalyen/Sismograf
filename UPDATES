@@ -1,4 +1,4 @@
-V.1.0.1
+﻿V.1.0.1
 ================================================================================================================================================================
 - Mobil cihazlarda istasyon seçimi sonrasında helicorder grafikteki yüksek bellek tüketimine neden olan crash sorununun önüne geçmek için, 
 kullanıcı cihazının RAM kontrolü yapılıyor. 

@@ -1170,7 +1170,7 @@ canvas {
     #dayplotCanvas {
         width: 100%;
         max-width: 100%;
-        height: 250px;
+        height: 220px;
         max-height: 45vh;
         box-sizing: border-box;
         touch-action: pan-y;

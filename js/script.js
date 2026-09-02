@@ -1555,61 +1555,65 @@
                     return;
                 }
 
-                const startTime = new Date(dateStr + 'T00:00:00.000Z');
-                const endTime = new Date(dateStr + 'T23:59:59.999Z');
-
                 const ds = DATA_SOURCES[currentStation.dataSource] || DATA_SOURCES.koeri;
-                const url = `${ds.dataselect}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode || '--'}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
+                const network = currentStation.network;
+                const station = currentStation.code;
+                const location = channel.locationCode || '--';
 
                 if (window.dayplotAbortController) window.dayplotAbortController.abort();
-                window.dayplotAbortController = new AbortController();
-
-                const response = await fetch(url, { signal: window.dayplotAbortController.signal });
-
-                if (response.status === 204 || !response.ok || response.status === 0) {
-                    document.getElementById('dayplotLoadingText').textContent = 'No data available for this date.';
-                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                    return;
-                }
-
-                const arrayBuffer = await response.arrayBuffer();
-
-                if (arrayBuffer.byteLength === 0) {
-                    document.getElementById('dayplotLoadingText').textContent = 'No data available for this date.';
-                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                    return;
-                }
-
-                const dataRecords = seisplotjs.miniseed.parseDataRecords(arrayBuffer);
-                const seismograms = seisplotjs.miniseed.seismogramPerChannel(dataRecords);
-
-                if (!seismograms || seismograms.length === 0) {
-                    document.getElementById('dayplotLoadingText').textContent = 'Could not parse data for this date.';
-                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                    return;
-                }
-
-                const seismogram = seismograms[0];
-
-                const sampleRate = seismogram.sampleRate || (seismogram.segments && seismogram.segments[0].sampleRate) || 100;
-                currentDayplotSampleRate = sampleRate;
+                const controller = new AbortController();
+                window.dayplotAbortController = controller;
 
                 const segments = [];
+                let sampleRate = 100;
+                const dayStartMs = Date.parse(dateStr + 'T00:00:00.000Z');
 
-                const pushSegment = (startTime, y) => {
-                    if (y && y.length > 0) {
-                        segments.push({ startTime: startTime, y: y });
+                for (let h = 0; h < 24; h++) {
+                    if (controller.signal.aborted) return;
+
+                    const s = new Date(dayStartMs + h * 3600000);
+                    const e = new Date(dayStartMs + (h + 1) * 3600000 - 1);
+                    const url = `${ds.dataselect}?network=${network}&station=${station}&location=${location}&channel=${currentChannel}&starttime=${s.toISOString()}&endtime=${e.toISOString()}`;
+
+                    let response;
+                    try {
+                        response = await fetch(url, { signal: controller.signal });
+                    } catch (error) {
+                        if (error.name === 'AbortError') return;
+                        throw error;
                     }
-                };
 
-                if (seismogram.segments && seismogram.segments.length > 0) {
-                    seismogram.segments.forEach(segment => pushSegment(segment.startTime, segment.y));
-                } else {
-                    pushSegment(seismogram.startTime, seismogram.y);
+                    if (response.status === 204 || !response.ok || response.status === 0) {
+                        continue;
+                    }
+
+                    const arrayBuffer = await response.arrayBuffer();
+                    if (arrayBuffer.byteLength === 0) continue;
+
+                    const records = seisplotjs.miniseed.parseDataRecords(arrayBuffer);
+                    const seis = seisplotjs.miniseed.seismogramPerChannel(records);
+                    if (!seis || seis.length === 0) continue;
+
+                    const seg0 = seis[0];
+                    const sr = seg0.sampleRate || (seg0.segments && seg0.segments[0].sampleRate) || 0;
+                    if (sr > 0) {
+                        sampleRate = sr;
+                        currentDayplotSampleRate = sr;
+                    }
+
+                    if (seg0.segments && seg0.segments.length > 0) {
+                        for (const sg of seg0.segments) {
+                            if (sg.y && sg.y.length > 0) segments.push({ startTime: sg.startTime, y: sg.y });
+                        }
+                    } else if (seg0.y && seg0.y.length > 0) {
+                        segments.push({ startTime: seg0.startTime, y: seg0.y });
+                    }
                 }
 
+                if (controller.signal.aborted) return;
+
                 if (segments.length === 0) {
-                    document.getElementById('dayplotLoadingText').textContent = 'No data points found for this date.';
+                    document.getElementById('dayplotLoadingText').textContent = 'No data available for this date.';
                     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
                     return;
                 }
@@ -1639,9 +1643,10 @@
             });
         }
 
-        function drawDayplot(canvas, segments, sampleRate, dateStr) {
+        async function drawDayplot(canvas, segments, sampleRate, dateStr) {
             const rect = canvas.getBoundingClientRect();
             if (rect.width < 20 || rect.height < 20) return;
+            const drawSeq = (window.__dayplotSeq = (window.__dayplotSeq || 0) + 1);
             const dpr = window.devicePixelRatio || 1;
             canvas.width = Math.max(1, Math.round(rect.width * dpr));
             canvas.height = Math.max(1, Math.round(rect.height * dpr));
@@ -1784,7 +1789,10 @@
             ctx.lineWidth = isNarrow ? 1.0 : 1.1;
             ctx.lineJoin = 'round';
             const chunkSize = 100000;
+            const yieldEvery = 200000;
+            let ptsSince = 0;
             for (const seg of segments) {
+                if (window.__dayplotSeq !== drawSeq) return;
                 const st = segTimeMs(seg.startTime, dayStart);
                 const firstIdx = Math.max(0, Math.ceil((dayStart - st) / sampleMs));
                 const lastIdx = Math.min(seg.y.length - 1, Math.floor((dayEnd - st) / sampleMs));
@@ -1801,10 +1809,16 @@
                     } else {
                         ctx.lineTo(x, y);
                     }
+                    ptsSince++;
                     if (((i - firstIdx + 1) % chunkSize) === 0 || i === lastIdx) {
                         ctx.stroke();
                         ctx.beginPath();
                         ctx.moveTo(x, y);
+                    }
+                    if (ptsSince >= yieldEvery) {
+                        ptsSince = 0;
+                        await new Promise(r => requestAnimationFrame(r));
+                        if (window.__dayplotSeq !== drawSeq) return;
                     }
                 }
             }

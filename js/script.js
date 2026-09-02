@@ -1350,12 +1350,6 @@
             
             const isMobile = isMobileDevice || hasLowMemory || (isTouchDevice && isSmallScreen);
             
-            let sum = 0;
-            for (let i = 0; i < data.length; i++) {
-                sum += data[i];
-            }
-            const mean = sum / data.length;
-            
             const traces = [];
             
             for (let hour = 0; hour < hoursToShow; hour++) {
@@ -1374,7 +1368,7 @@
                     for (let i = startIdx; i < endIdx; i += stride) {
                         const timeOffset = (i - startIdx) / sampleRate;
                         rawTimeData.push(timeOffset / 60);
-                        rawHourData.push(data[i] - mean);
+                        rawHourData.push(data[i]);
                     }
 
                     timeData = rawTimeData;
@@ -1396,7 +1390,7 @@
                     yaxis: `y${hour + 1}`,
                     name: `${hourStr}:00`,
                     hovertemplate: hourData.length > 0
-                        ? `<b>${hourStr}:%{x:.1f} min</b><br>Amplitude: %{y:.3e}<extra></extra>`
+                        ? `<b>${hourStr}:%{x:.1f} min</b><br>Amplitude: %{y}<extra></extra>`
                         : `<b>${hourStr}:00 (No data)</b><extra></extra>`,
                     showlegend: false
                 });
@@ -1481,6 +1475,364 @@
             Plotly.newPlot(container, traces, layout, config);
         }
 
+        window.dayplotAbortController = null;
+        let currentDayplotSampleRate = 100;
+
+        window.openDayplot = function() {
+            if (!currentStation || !currentChannel) {
+                showError('Please select a station and channel first');
+                return;
+            }
+
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+
+            document.getElementById('dayplotModal').classList.add('open');
+
+            const today = new Date();
+            const dateStr = currentViewDate || today.toISOString().split('T')[0];
+            document.getElementById('dayplotDate').value = dateStr;
+            document.getElementById('dayplotDate').max = today.toISOString().split('T')[0];
+
+            document.getElementById('dayplotTitle').textContent =
+                `24-Hour Day Plot (UTC) - ${currentStation.code} - ${currentStation.name} (${currentChannel})`;
+
+            loadDayplotData(dateStr);
+
+            document.getElementById('dayplotDate').onchange = (e) => {
+                loadDayplotData(e.target.value);
+            };
+        };
+
+        window.closeDayplot = function() {
+            document.getElementById('dayplotModal').classList.remove('open');
+            if (window.dayplotAbortController) {
+                window.dayplotAbortController.abort();
+                window.dayplotAbortController = null;
+            }
+            const canvas = document.getElementById('dayplotCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (currentStation && currentChannel && !refreshInterval) {
+                refreshInterval = setInterval(loadSeismicData, 30000);
+            }
+        };
+
+        async function loadDayplotData(dateStr) {
+            const canvas = document.getElementById('dayplotCanvas');
+            const loading = document.getElementById('dayplotLoading');
+            loading.style.display = 'flex';
+
+            try {
+                const selectedDate = new Date(dateStr + 'T00:00:00');
+                const now = new Date();
+                const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const selectDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+
+                if (selectDate > todayDate) {
+                    document.getElementById('dayplotLoadingText').textContent = 'Cannot select future dates. Please choose today or an earlier date.';
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                const channel = currentStation.channels.find(c => c.code === currentChannel);
+                if (!channel) {
+                    document.getElementById('dayplotLoadingText').textContent = 'Channel not found';
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                const startTime = new Date(dateStr + 'T00:00:00.000Z');
+                const endTime = new Date(dateStr + 'T23:59:59.999Z');
+
+                const ds = DATA_SOURCES[currentStation.dataSource] || DATA_SOURCES.koeri;
+                const url = `${ds.dataselect}?network=${currentStation.network}&station=${currentStation.code}&location=${channel.locationCode || '--'}&channel=${currentChannel}&starttime=${startTime.toISOString()}&endtime=${endTime.toISOString()}`;
+
+                if (window.dayplotAbortController) window.dayplotAbortController.abort();
+                window.dayplotAbortController = new AbortController();
+
+                const response = await fetch(url, { signal: window.dayplotAbortController.signal });
+
+                if (response.status === 204 || !response.ok || response.status === 0) {
+                    document.getElementById('dayplotLoadingText').textContent = 'No data available for this date.';
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+
+                if (arrayBuffer.byteLength === 0) {
+                    document.getElementById('dayplotLoadingText').textContent = 'No data available for this date.';
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                const dataRecords = seisplotjs.miniseed.parseDataRecords(arrayBuffer);
+                const seismograms = seisplotjs.miniseed.seismogramPerChannel(dataRecords);
+
+                if (!seismograms || seismograms.length === 0) {
+                    document.getElementById('dayplotLoadingText').textContent = 'Could not parse data for this date.';
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                const seismogram = seismograms[0];
+
+                const sampleRate = seismogram.sampleRate || (seismogram.segments && seismogram.segments[0].sampleRate) || 100;
+                currentDayplotSampleRate = sampleRate;
+
+                const segments = [];
+
+                const pushSegment = (startTime, y) => {
+                    if (y && y.length > 0) {
+                        segments.push({ startTime: startTime, y: Array.from(y) });
+                    }
+                };
+
+                if (seismogram.segments && seismogram.segments.length > 0) {
+                    seismogram.segments.forEach(segment => pushSegment(segment.startTime, segment.y));
+                } else {
+                    pushSegment(seismogram.startTime, seismogram.y);
+                }
+
+                if (segments.length === 0) {
+                    document.getElementById('dayplotLoadingText').textContent = 'No data points found for this date.';
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                loading.style.display = 'none';
+                drawDayplot(canvas, segments, sampleRate, dateStr);
+
+            } catch (error) {
+                console.error('Error loading dayplot:', error);
+                if (error.name === 'AbortError') return;
+                const loadingText = document.getElementById('dayplotLoadingText');
+                if (loadingText) loadingText.textContent = `Failed to load dayplot data: ${error.message}`;
+                loading.style.display = 'flex';
+            }
+        }
+
+        function drawDayplot(canvas, segments, sampleRate, dateStr) {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.max(1, Math.round(rect.width * dpr));
+            canvas.height = Math.max(1, Math.round(rect.height * dpr));
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const width = rect.width;
+            const height = rect.height;
+
+            const topInfoH = 52;
+            const leftAxisW = 88;
+            const rightPad = 14;
+            const bottomAxisH = 34;
+            const plotLeft = leftAxisW;
+            const plotRight = width - rightPad;
+            const plotTop = topInfoH + 12;
+            const plotBottom = height - bottomAxisH;
+            const plotW = plotRight - plotLeft;
+            const plotH = plotBottom - plotTop;
+
+            const bg = '#080c18';
+            const gridSoft = 'rgba(148, 163, 184, 0.08)';
+            const grid = 'rgba(148, 163, 184, 0.20)';
+            const axisText = '#94a3b8';
+            const headerBg = '#0f1729';
+            const borderColor = 'rgba(51, 65, 85, 0.6)';
+            const bandFill = 'rgba(37, 99, 235, 0.20)';
+            const traceColor = '#60a5fa';
+            const zeroColor = 'rgba(148, 163, 184, 0.30)';
+
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, width, height);
+
+            const dayStart = Date.parse(dateStr + 'T00:00:00.000Z');
+            const dayEnd = dayStart + 86400000;
+            const dayMs = dayEnd - dayStart;
+
+            function segTimeMs(t, fallback) {
+                if (t == null) return fallback;
+                if (typeof t === 'number') return t;
+                if (typeof t.getTime === 'function') {
+                    const v = t.getTime();
+                    if (typeof v === 'number' && !isNaN(v)) return v;
+                }
+                if (typeof t.valueOf === 'function') {
+                    const v = t.valueOf();
+                    if (typeof v === 'number' && !isNaN(v)) return v;
+                }
+                if (typeof t === 'string' || t instanceof Date) {
+                    const p = Date.parse(t);
+                    if (!isNaN(p)) return p;
+                }
+                return fallback;
+            }
+
+            let n = 0;
+            segments.forEach(s => { n += s.y.length; });
+
+            if (n === 0) {
+                ctx.fillStyle = axisText;
+                ctx.font = '12px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data', width / 2, height / 2);
+                return;
+            }
+
+            const sampleMs = 1000 / sampleRate;
+
+            let lo = Infinity, hi = -Infinity;
+            for (const seg of segments) {
+                for (let i = 0; i < seg.y.length; i++) {
+                    const v = seg.y[i];
+                    if (v < lo) lo = v;
+                    if (v > hi) hi = v;
+                }
+            }
+            if (!(hi > lo)) {
+                lo -= 1;
+                hi += 1;
+            }
+
+            let dataStartMs = Infinity, dataEndMs = -Infinity;
+            for (const seg of segments) {
+                const st = segTimeMs(seg.startTime, dayStart);
+                const lenMs = (seg.y.length - 1) * sampleMs;
+                const segStart = Math.max(st, dayStart);
+                const segEnd = Math.min(st + lenMs, dayEnd - 1);
+                if (segStart < segEnd) {
+                    if (segStart < dataStartMs) dataStartMs = segStart;
+                    if (segEnd > dataEndMs) dataEndMs = segEnd;
+                }
+            }
+            if (!(dataStartMs < dayEnd)) { dataStartMs = dayStart; dataEndMs = dayEnd - 1; }
+
+            const fmtTime = (ms) => {
+                const d = new Date(ms);
+                const hh = String(d.getUTCHours()).padStart(2, '0');
+                const mm = String(d.getUTCMinutes()).padStart(2, '0');
+                return hh + ':' + mm;
+            };
+
+            ctx.fillStyle = headerBg;
+            ctx.fillRect(0, 0, width, topInfoH);
+            ctx.fillStyle = borderColor;
+            ctx.fillRect(0, topInfoH - 1, width, 1);
+
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'left';
+            ctx.font = '700 14px system-ui, sans-serif';
+            ctx.fillStyle = '#f1f5f9';
+            const title = currentStation
+                ? `${currentStation.network || '--'} · ${currentStation.code} · ${currentStation.name} (${currentChannel})`
+                : '24-Hour Day Plot';
+            ctx.fillText(title, 14, 17);
+
+            ctx.font = '600 12px system-ui, sans-serif';
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillText(
+                `${dateStr}  ${fmtTime(dataStartMs)}–${fmtTime(dataEndMs)} UTC  ·  ${sampleRate} Hz  ·  ${n.toLocaleString('en-US')} samples`,
+                14, topInfoH - 16
+            );
+
+            const midY = plotTop + plotH / 2;
+
+            function xOf(ms) {
+                const t = (ms - dayStart) / dayMs;
+                return plotLeft + t * plotW;
+            }
+
+            function yOf(v) {
+                const t = (v - lo) / (hi - lo);
+                return plotBottom - t * (plotH - 8) - 4;
+            }
+
+            ctx.strokeStyle = traceColor;
+            ctx.lineWidth = 1.1;
+            ctx.lineJoin = 'round';
+            const chunkSize = 100000;
+            for (const seg of segments) {
+                const st = segTimeMs(seg.startTime, dayStart);
+                const firstIdx = Math.max(0, Math.ceil((dayStart - st) / sampleMs));
+                const lastIdx = Math.min(seg.y.length - 1, Math.floor((dayEnd - st) / sampleMs));
+                if (firstIdx > lastIdx) continue;
+
+                let started = false;
+                ctx.beginPath();
+                for (let i = firstIdx; i <= lastIdx; i++) {
+                    const x = xOf(st + i * sampleMs);
+                    const y = yOf(seg.y[i]);
+                    if (!started) {
+                        ctx.moveTo(x, y);
+                        started = true;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    if (((i - firstIdx + 1) % chunkSize) === 0 || i === lastIdx) {
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                    }
+                }
+            }
+
+            ctx.strokeStyle = borderColor;
+            ctx.strokeRect(plotLeft - 0.5, plotTop - 0.5, plotW + 1, plotH + 1);
+
+            function formatSI(v) {
+                return String(v);
+            }
+
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            const ticks = [lo, lo + (hi - lo) * 0.25, lo + (hi - lo) * 0.5, lo + (hi - lo) * 0.75, hi];
+            for (let i = 0; i < ticks.length; i++) {
+                const v = ticks[i];
+                const y = yOf(v);
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillText(formatSI(v), plotLeft - 8, y);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.beginPath();
+                ctx.moveTo(plotLeft - 5, y);
+                ctx.lineTo(plotLeft - 1, y);
+                ctx.stroke();
+            }
+
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            const hStep = plotW / 8 < 55 ? 6 : 3;
+            for (let h = 0; h <= 24; h += hStep) {
+                const x = plotLeft + (h / 24) * plotW;
+                const label = String(h).padStart(2, '0') + ':00';
+                const tx = Math.max(plotLeft, Math.min(x, plotRight - 32));
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillText(label, tx, plotBottom + 9);
+                ctx.strokeStyle = grid;
+                ctx.beginPath();
+                ctx.moveTo(x, plotBottom);
+                ctx.lineTo(x, plotBottom + 5);
+                ctx.stroke();
+
+                if (h > 0 && h < 24) {
+                    ctx.strokeStyle = gridSoft;
+                    ctx.beginPath();
+                    ctx.moveTo(x, plotTop);
+                    ctx.lineTo(x, plotBottom);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+            ctx.fillRect(0, topInfoH - 3, width, 3);
+        }
+
         function initDayPicker() {
             const dayInput = document.getElementById('daySelect');
             const liveBtn = document.getElementById('liveModeBtn');
@@ -1554,3 +1906,21 @@
         initDayPicker();
 
         document.getElementById('waveformCanvas').addEventListener('click', openHelicorder);
+
+        const dayplotBtn = document.getElementById('dayplotBtn');
+        if (dayplotBtn) {
+            dayplotBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openDayplot();
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.getElementById('dayplotModal').classList.contains('open')) {
+                    closeDayplot();
+                } else if (document.getElementById('helicorderModal').classList.contains('open')) {
+                    closeHelicorder();
+                }
+            }
+        });

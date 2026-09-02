@@ -64,7 +64,6 @@
             </div>
 
             <div class="view-controls" id="viewControls">
-                <span class="view-label">Time Range</span>
                 <div class="view-controls-row">
                     <button id="liveModeBtn" class="live-btn active" title="Live 15-minute view">Live</button>
                     <div class="day-trigger" id="dayTrigger" title="Select a date for the full-day view">
@@ -85,7 +84,16 @@
                         <span id="lastUpdate">-</span>
                     </span>
                 </div>
-                <canvas id="waveformCanvas" style="cursor: pointer;"></canvas>
+                <div class="waveform-stage">
+                    <div class="waveform-canvas-wrap">
+                        <canvas id="waveformCanvas" style="cursor: pointer;" title="Click to view 24-Hour Helicorder"></canvas>
+                        <span class="waveform-hover-hint">Click to view 24-Hour Helicorder</span>
+                    </div>
+                    <button id="dayplotBtn" class="dayplot-btn" title="Open 24-hour day plot" aria-label="Open 24-hour day plot">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3H3M21 6H3M21 9H3M21 12H3M21 15H3M21 18H3M21 21H3"></path></svg>
+                        <span>Day Plot</span>
+                    </button>
+                </div>
             </div>
 
             <div class="chart-container" id="spectrogramContainer">
@@ -142,6 +150,25 @@
             </div>
             <div class="helicorder-body" id="helicorderBody">
                 <div id="helicorderPlot"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dayplotModal">
+        <div class="dayplot-content">
+            <div class="helicorder-header dayplot-header">
+                <div class="helicorder-title" id="dayplotTitle">24-Hour Day Plot (UTC)</div>
+                <div class="helicorder-controls">
+                    <input type="date" id="dayplotDate" class="date-input" />
+                    <button class="close-btn" onclick="closeDayplot()">×</button>
+                </div>
+            </div>
+            <div class="dayplot-body">
+                <div class="dayplot-loading" id="dayplotLoading">
+                    <div class="spinner"></div>
+                    <div id="dayplotLoadingText">Loading 24-hour data...</div>
+                </div>
+                <canvas id="dayplotCanvas"></canvas>
             </div>
         </div>
     </div>

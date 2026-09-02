@@ -1567,12 +1567,19 @@
                 const segments = [];
                 let sampleRate = 100;
                 const dayStartMs = Date.parse(dateStr + 'T00:00:00.000Z');
+                const chunked = isMobileView() || window.innerWidth < 860;
+                const hours = chunked ? 24 : 1;
+                const loadingText = document.getElementById('dayplotLoadingText');
 
-                for (let h = 0; h < 24; h++) {
+                for (let h = 0; h < hours; h++) {
                     if (controller.signal.aborted) return;
 
+                    if (chunked) loadingText.textContent = `Loading hour ${h + 1} of 24...`;
+
                     const s = new Date(dayStartMs + h * 3600000);
-                    const e = new Date(dayStartMs + (h + 1) * 3600000 - 1);
+                    const e = chunked
+                        ? new Date(dayStartMs + (h + 1) * 3600000 - 1)
+                        : new Date(dayStartMs + 86400000 - 1);
                     const url = `${ds.dataselect}?network=${network}&station=${station}&location=${location}&channel=${currentChannel}&starttime=${s.toISOString()}&endtime=${e.toISOString()}`;
 
                     let response;

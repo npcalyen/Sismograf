@@ -1130,6 +1130,7 @@ canvas {
     align-items: stretch;
     padding: 15px;
     min-height: 0;
+    overflow: hidden;
 }
 
 .dayplot-loading {
@@ -1161,10 +1162,17 @@ canvas {
     }
 
     .dayplot-body {
-        padding: 8px;
+        padding: 6px;
+        align-items: center;
+        justify-content: center;
     }
 
     #dayplotCanvas {
+        width: 100%;
+        max-width: 100%;
+        height: 260px;
+        max-height: 45vh;
+        box-sizing: border-box;
         touch-action: pan-y;
     }
 }

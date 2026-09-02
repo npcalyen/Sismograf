@@ -1152,6 +1152,17 @@ canvas {
     display: block;
 }
 
+@media (max-width: 768px) {
+    .dayplot-content {
+        max-width: 100vw;
+        max-height: 100vh;
+    }
+
+    #dayplotCanvas {
+        touch-action: pan-y;
+    }
+}
+
 @media (min-width: 769px) {
     .dayplot-header {
         padding: 20px 30px;

@@ -1605,7 +1605,8 @@
                 }
 
                 loading.style.display = 'none';
-                drawDayplot(canvas, segments, sampleRate, dateStr);
+                window.dayplotView = { segments: segments, sampleRate: sampleRate, dateStr: dateStr };
+                redrawDayplot();
 
             } catch (error) {
                 console.error('Error loading dayplot:', error);
@@ -1616,8 +1617,21 @@
             }
         }
 
+        let dayplotRafId = null;
+
+        function redrawDayplot() {
+            if (!window.dayplotView) return;
+            const canvas = document.getElementById('dayplotCanvas');
+            if (!canvas) return;
+            if (dayplotRafId) cancelAnimationFrame(dayplotRafId);
+            dayplotRafId = requestAnimationFrame(() => {
+                drawDayplot(canvas, window.dayplotView.segments, window.dayplotView.sampleRate, window.dayplotView.dateStr);
+            });
+        }
+
         function drawDayplot(canvas, segments, sampleRate, dateStr) {
             const rect = canvas.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 20) return;
             const dpr = window.devicePixelRatio || 1;
             canvas.width = Math.max(1, Math.round(rect.width * dpr));
             canvas.height = Math.max(1, Math.round(rect.height * dpr));
@@ -1627,10 +1641,11 @@
             const width = rect.width;
             const height = rect.height;
 
-            const topInfoH = 52;
-            const leftAxisW = 88;
-            const rightPad = 14;
-            const bottomAxisH = 34;
+            const isNarrow = width < 520;
+            const topInfoH = isNarrow ? 40 : 52;
+            const leftAxisW = isNarrow ? 58 : 88;
+            const rightPad = isNarrow ? 8 : 14;
+            const bottomAxisH = isNarrow ? 30 : 34;
             const plotLeft = leftAxisW;
             const plotRight = width - rightPad;
             const plotTop = topInfoH + 12;
@@ -1726,14 +1741,14 @@
 
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'left';
-            ctx.font = '700 14px system-ui, sans-serif';
+            ctx.font = '700 ' + (isNarrow ? 13 : 14) + 'px system-ui, sans-serif';
             ctx.fillStyle = '#f1f5f9';
             const title = currentStation
                 ? `${currentStation.network || '--'} · ${currentStation.code} · ${currentStation.name} (${currentChannel})`
                 : '24-Hour Day Plot';
             ctx.fillText(title, 14, 17);
 
-            ctx.font = '600 12px system-ui, sans-serif';
+            ctx.font = '600 ' + (isNarrow ? 11 : 12) + 'px system-ui, sans-serif';
             ctx.fillStyle = '#cbd5e1';
             ctx.fillText(
                 `${dateStr}  ${fmtTime(dataStartMs)}–${fmtTime(dataEndMs)} UTC  ·  ${sampleRate} Hz  ·  ${n.toLocaleString('en-US')} samples`,
@@ -1788,7 +1803,7 @@
                 return String(v);
             }
 
-            ctx.font = 'bold 11px monospace';
+            ctx.font = 'bold ' + (isNarrow ? 10 : 11) + 'px monospace';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const ticks = [lo, lo + (hi - lo) * 0.25, lo + (hi - lo) * 0.5, lo + (hi - lo) * 0.75, hi];
@@ -1804,7 +1819,7 @@
                 ctx.stroke();
             }
 
-            ctx.font = 'bold 11px monospace';
+            ctx.font = 'bold ' + (isNarrow ? 10 : 11) + 'px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             const hStep = plotW / 8 < 55 ? 6 : 3;
@@ -1923,4 +1938,12 @@
                     closeHelicorder();
                 }
             }
+        });
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('dayplotModal').classList.contains('open')) redrawDayplot();
+        });
+
+        window.addEventListener('orientationchange', () => {
+            if (document.getElementById('dayplotModal').classList.contains('open')) redrawDayplot();
         });

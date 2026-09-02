@@ -83,6 +83,16 @@
             stationLayer = L.layerGroup().addTo(map);
         }
 
+        function isMobileView() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)) return true;
+            if (navigator.maxTouchPoints > 1) {
+                const minDim = Math.min(window.innerWidth, window.innerHeight);
+                return minDim > 0 && minDim < 700;
+            }
+            return false;
+        }
+
         function createMap() {
             map = L.map('map', {
                 center: [39.0, 35.0],
@@ -1641,11 +1651,12 @@
             const width = rect.width;
             const height = rect.height;
 
-            const isNarrow = width < 520;
-            const topInfoH = isNarrow ? 40 : 52;
-            const leftAxisW = isNarrow ? 58 : 88;
-            const rightPad = isNarrow ? 8 : 14;
-            const bottomAxisH = isNarrow ? 30 : 34;
+            const isMobile = isMobileView();
+            const isNarrow = isMobile || width < 520;
+            const topInfoH = isNarrow ? 38 : 52;
+            const leftAxisW = isNarrow ? 48 : 88;
+            const rightPad = isNarrow ? 6 : 14;
+            const bottomAxisH = isNarrow ? 28 : 34;
             const plotLeft = leftAxisW;
             const plotRight = width - rightPad;
             const plotTop = topInfoH + 12;
@@ -1741,18 +1752,18 @@
 
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'left';
-            ctx.font = '700 ' + (isNarrow ? 13 : 14) + 'px system-ui, sans-serif';
+            ctx.font = '700 ' + (isNarrow ? 12 : 14) + 'px system-ui, sans-serif';
             ctx.fillStyle = '#f1f5f9';
             const title = currentStation
                 ? `${currentStation.network || '--'} · ${currentStation.code} · ${currentStation.name} (${currentChannel})`
                 : '24-Hour Day Plot';
-            ctx.fillText(title, 14, 17);
+            ctx.fillText(title, 14, isNarrow ? 13 : 17);
 
-            ctx.font = '600 ' + (isNarrow ? 11 : 12) + 'px system-ui, sans-serif';
+            ctx.font = '600 ' + (isNarrow ? 10 : 12) + 'px system-ui, sans-serif';
             ctx.fillStyle = '#cbd5e1';
             ctx.fillText(
                 `${dateStr}  ${fmtTime(dataStartMs)}–${fmtTime(dataEndMs)} UTC  ·  ${sampleRate} Hz  ·  ${n.toLocaleString('en-US')} samples`,
-                14, topInfoH - 16
+                14, isNarrow ? 27 : (topInfoH - 16)
             );
 
             const midY = plotTop + plotH / 2;
@@ -1806,7 +1817,11 @@
             ctx.font = 'bold ' + (isNarrow ? 10 : 11) + 'px monospace';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            const ticks = [lo, lo + (hi - lo) * 0.25, lo + (hi - lo) * 0.5, lo + (hi - lo) * 0.75, hi];
+            const tickCount = isNarrow ? 3 : 5;
+            const ticks = [];
+            for (let i = 0; i < tickCount; i++) {
+                ticks.push(lo + (hi - lo) * (i / (tickCount - 1)));
+            }
             for (let i = 0; i < ticks.length; i++) {
                 const v = ticks[i];
                 const y = yOf(v);

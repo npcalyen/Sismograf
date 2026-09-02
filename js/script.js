@@ -1654,12 +1654,12 @@
             const isMobile = isMobileView();
             const isNarrow = isMobile || width < 520;
             const topInfoH = isNarrow ? 38 : 52;
-            const leftAxisW = isNarrow ? 48 : 88;
+            const leftAxisW = isNarrow ? 50 : 88;
             const rightPad = isNarrow ? 6 : 14;
-            const bottomAxisH = isNarrow ? 28 : 34;
+            const bottomAxisH = isNarrow ? 26 : 34;
             const plotLeft = leftAxisW;
             const plotRight = width - rightPad;
-            const plotTop = topInfoH + 12;
+            const plotTop = topInfoH + (isNarrow ? 8 : 12);
             const plotBottom = height - bottomAxisH;
             const plotW = plotRight - plotLeft;
             const plotH = plotBottom - plotTop;
@@ -1752,18 +1752,20 @@
 
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'left';
-            ctx.font = '700 ' + (isNarrow ? 12 : 14) + 'px system-ui, sans-serif';
+            ctx.font = '700 ' + (isNarrow ? 11 : 14) + 'px system-ui, sans-serif';
             ctx.fillStyle = '#f1f5f9';
             const title = currentStation
-                ? `${currentStation.network || '--'} · ${currentStation.code} · ${currentStation.name} (${currentChannel})`
+                ? isNarrow
+                    ? `${currentStation.network || '--'} ${currentStation.code} (${currentChannel})`
+                    : `${currentStation.network || '--'} · ${currentStation.code} · ${currentStation.name} (${currentChannel})`
                 : '24-Hour Day Plot';
-            ctx.fillText(title, 14, isNarrow ? 13 : 17);
+            ctx.fillText(title, 14, isNarrow ? 12 : 17);
 
-            ctx.font = '600 ' + (isNarrow ? 10 : 12) + 'px system-ui, sans-serif';
+            ctx.font = '600 ' + (isNarrow ? 9 : 12) + 'px system-ui, sans-serif';
             ctx.fillStyle = '#cbd5e1';
             ctx.fillText(
                 `${dateStr}  ${fmtTime(dataStartMs)}–${fmtTime(dataEndMs)} UTC  ·  ${sampleRate} Hz  ·  ${n.toLocaleString('en-US')} samples`,
-                14, isNarrow ? 27 : (topInfoH - 16)
+                14, isNarrow ? 28 : (topInfoH - 16)
             );
 
             const midY = plotTop + plotH / 2;
@@ -1779,7 +1781,7 @@
             }
 
             ctx.strokeStyle = traceColor;
-            ctx.lineWidth = 1.1;
+            ctx.lineWidth = isNarrow ? 1.0 : 1.1;
             ctx.lineJoin = 'round';
             const chunkSize = 100000;
             for (const seg of segments) {
@@ -1814,7 +1816,7 @@
                 return String(v);
             }
 
-            ctx.font = 'bold ' + (isNarrow ? 10 : 11) + 'px monospace';
+            ctx.font = 'bold ' + (isNarrow ? 9 : 11) + 'px monospace';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const tickCount = isNarrow ? 3 : 5;
@@ -1826,7 +1828,7 @@
                 const v = ticks[i];
                 const y = yOf(v);
                 ctx.fillStyle = '#cbd5e1';
-                ctx.fillText(formatSI(v), plotLeft - 8, y);
+                ctx.fillText(formatSI(v), plotLeft - 5, y);
                 ctx.strokeStyle = '#94a3b8';
                 ctx.beginPath();
                 ctx.moveTo(plotLeft - 5, y);
@@ -1834,16 +1836,16 @@
                 ctx.stroke();
             }
 
-            ctx.font = 'bold ' + (isNarrow ? 10 : 11) + 'px monospace';
+            ctx.font = 'bold ' + (isNarrow ? 9 : 11) + 'px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             const hStep = plotW / 8 < 55 ? 6 : 3;
             for (let h = 0; h <= 24; h += hStep) {
                 const x = plotLeft + (h / 24) * plotW;
                 const label = String(h).padStart(2, '0') + ':00';
-                const tx = Math.max(plotLeft, Math.min(x, plotRight - 32));
+                const tx = Math.max(plotLeft, Math.min(x, plotRight - 30));
                 ctx.fillStyle = '#cbd5e1';
-                ctx.fillText(label, tx, plotBottom + 9);
+                ctx.fillText(label, tx, plotBottom + (isNarrow ? 8 : 9));
                 ctx.strokeStyle = grid;
                 ctx.beginPath();
                 ctx.moveTo(x, plotBottom);

@@ -1598,7 +1598,7 @@
 
                 const pushSegment = (startTime, y) => {
                     if (y && y.length > 0) {
-                        segments.push({ startTime: startTime, y: Array.from(y) });
+                        segments.push({ startTime: startTime, y: y });
                     }
                 };
 
